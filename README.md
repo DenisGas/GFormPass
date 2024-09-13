@@ -22,8 +22,6 @@
 
 3. **Adds a Button**: For each question found, it adds a "Show Question" button to the form. When clicked, the button logs the corresponding question's details to the console.
 
-4. **Handles Edge Cases**: If a question has radio buttons with an "Other" option or is a select dropdown, the options are omitted from the output to keep the response cleaner.
-
 ## Installation
 
 To use this script, simply include it in your browser's console on any Google Form page. It will automatically detect the questions and add buttons to the page.
