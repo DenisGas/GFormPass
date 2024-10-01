@@ -12,6 +12,9 @@
 (function () {
     'use strict';
 
+    let areButtonsVisible = true; // Flag to track button visibility
+    let areOutputBlocksVisible = true; // Flag to track output block visibility
+
     function getElementPath(element) {
         const path = [];
         while (element && element.nodeType === Node.ELEMENT_NODE) {
@@ -43,10 +46,9 @@ async function clickAndExtractOptions(container) {
             resolve([]);
             return;
         }
-        selector.click(); // Натискаємо на селект
+        selector.click(); // Click to open the dropdown
 
         const observer = new MutationObserver(() => {
-            // Пошук випадаючого меню з варіантами відповіді, тільки для цього селекту
             const optionsContainer = container.querySelector('div[role="listbox"]');
             if (!optionsContainer) {
                 console.log('Options container not found.');
@@ -55,38 +57,42 @@ async function clickAndExtractOptions(container) {
                 return;
             }
 
-            const options = Array.from(optionsContainer.querySelectorAll('.vRMGwf.oJeWuf')); // Варіанти відповіді
+            const options = Array.from(optionsContainer.querySelectorAll('.vRMGwf.oJeWuf'));
+            if (options.length === 0) {
+                console.log('No options found.');
+                observer.disconnect();
+                resolve([]);
+                return;
+            }
+
             const optionData = options.map(option => ({
                 text: option.textContent.trim(),
-                path: getElementPath(option) // Отримуємо шлях до кожного варіанту
+                path: getElementPath(option)
             }));
 
             observer.disconnect();
 
-            // Імітація закриття випадаючого списку шляхом повторного кліку на селект
+            // Close the dropdown after a slight delay
             setTimeout(() => {
-                selector.click(); // Фейковий клік для закриття випадаючого меню
-            }, 100); // Невелика затримка перед повторним кліком
+                selector.click(); // Fake click to close the dropdown
+            }, 200);
 
             resolve(optionData);
         });
 
-        // Спостерігаємо за змінами в DOM, але тільки в межах поточного контейнера
         observer.observe(container, { childList: true, subtree: true });
 
-        // Встановлюємо таймаут на випадок, якщо варіанти не з'являться
+        // Increase the timeout to give more time for options to load
         setTimeout(() => {
             observer.disconnect();
-            resolve([]); // Повертаємо пустий масив, якщо варіанти не знайдені вчасно
-        }, 2000);
+            resolve([]); // Resolve with empty array if timeout occurs
+        }, 3000); // Increased timeout
     });
 }
 
 
-
     function findAllQuestions() {
         const questions = [];
-
         const questionTitles = Array.from(document.getElementsByClassName("M7eMe"));
 
         const radioClasses = ["aDTYNe", "snByac", "OvPDhc"];
@@ -109,30 +115,20 @@ async function clickAndExtractOptions(container) {
             const textField = container.querySelector('input[type="text"], textarea');
             const answerOptions = container ? Array.from(container.querySelectorAll(".OA0qNb, .aDTYNe.snByac")) : [];
 
-
-
-
             let questionType = 'input';
             if (answerOptions.length > 0) {
                 const isRadio = answerOptions.some(option => hasAllClasses(option, radioClasses));
                 const isCheckbox = answerOptions.some(option => hasAllClasses(option, checkboxClasses));
                 const isSelect = answerOptions.some(option => hasAllClasses(option, selectClasses));
                 if (isRadio) {
-                     questionType = 'radio';
-                    const radio_with_input = !(answerOptions.every(option => hasAllClasses(option, ["OIC90c"])));
-                    if (radio_with_input) questionType = "radio_with_input";
-                }
-                else if (isCheckbox) questionType = 'checkbox';
+                    questionType = 'radio';
+                    const radioWithInput = !(answerOptions.every(option => hasAllClasses(option, ["OIC90c"])));
+                    if (radioWithInput) questionType = "radio_with_input";
+                } else if (isCheckbox) questionType = 'checkbox';
                 else if (isSelect) questionType = 'select';
             } else if (textField) {
                 questionType = 'text';
             }
-
-            console.log(answerOptions, answerOptions.map((option, optionIndex) => ({
-                    text: option.textContent.trim(),
-                    id: `O-${optionIndex}`,
-                    path: getElementPath(option)
-                })));
 
             const question = {
                 title: questionTitle,
@@ -142,11 +138,9 @@ async function clickAndExtractOptions(container) {
                     text: option.textContent.trim(),
                     id: `O-${optionIndex}`,
                     path: getElementPath(option)
-                }))
+                })),
+                path: getElementPath(container)
             };
-
-            // Отримання CSS шляху до контейнера питання
-            const elementPath = getElementPath(container);
             questions.push(question);
         });
 
@@ -154,23 +148,22 @@ async function clickAndExtractOptions(container) {
         return { questions };
     }
 
-async function processQuestion(question, container) {
-    if (question.type === 'select') {
-        const options = await clickAndExtractOptions(container);
+    async function processQuestion(question, container) {
+        if (question.type === 'select') {
+            const options = await clickAndExtractOptions(container);
 
-        const halfLength = Math.ceil(options.length / 2); // Визначаємо половину
-        const filteredOptions = options.slice(halfLength); // Залишаємо тільки другу половину
+            const halfLength = Math.ceil(options.length / 2);
+            const filteredOptions = options.slice(halfLength);
 
-        // Оновлюємо питання новими варіантами
-        question.options = filteredOptions.map((option, index) => ({
-            text: option.text,
-            id: `O-${index}`,
-            path: option.path // Використовуємо правильний шлях до кожного варіанту
-        }));
+            question.options = filteredOptions.map((option, index) => ({
+                text: option.text,
+                id: `O-${index}`,
+                path: option.path
+            }));
+        }
+        createButtonForQuestion(question, container);
+        createOutputBlockForQuestion(question, container);
     }
-    createButtonForQuestion(question, container);
-}
-
 
     async function findQuestionsInGoogleForms() {
         const { questions } = findAllQuestions();
@@ -192,7 +185,7 @@ async function processQuestion(question, container) {
         const button = document.createElement('a');
         button.textContent = "copy question";
         button.classList.add('show-question-btn');
-        button.style.display = 'inline-block';
+        button.style.display = areButtonsVisible ? 'inline-block' : 'none';
         button.style.padding = '10px 15px';
         button.style.backgroundColor = '#1a73e8';
         button.style.color = '#fff';
@@ -211,6 +204,7 @@ async function processQuestion(question, container) {
                 console.log(question);
                 await navigator.clipboard.writeText(fullText);
                 console.log('Copied to clipboard:\n', fullText);
+                displayCopiedText(fullText, container);
             } catch (err) {
                 console.error('Error copying to buffer:', err);
             }
@@ -219,21 +213,55 @@ async function processQuestion(question, container) {
         container.appendChild(button);
     }
 
+    function createOutputBlockForQuestion(question, container) {
+        const outputBlock = document.createElement('pre');
+        outputBlock.style.backgroundColor = '#d4edda'; // Light green background
+        outputBlock.style.border = '1px solid #c3e6cb';
+        outputBlock.style.borderRadius = '5px';
+        outputBlock.style.padding = '10px';
+        outputBlock.style.marginTop = '10px';
+        outputBlock.style.display = 'none'; // Initially hidden
+        outputBlock.classList.add('output-block');
+
+        container.appendChild(outputBlock);
+    }
+
+    function displayCopiedText(text, container) {
+        const outputBlock = container.querySelector('.output-block');
+        if (outputBlock) {
+            outputBlock.textContent = text;
+            outputBlock.style.display = 'block'; // Show the block
+            outputBlock.classList.add('showed-output-block');
+        }
+    }
 
     function toggleShowQuestionButtons() {
         const buttons = document.querySelectorAll('a.show-question-btn');
         buttons.forEach(button => {
-            button.style.display = button.style.display === 'none' ? 'inline-block' : 'none';
+            button.style.display = areButtonsVisible ? 'none' : 'inline-block';
         });
+        areButtonsVisible = !areButtonsVisible; // Toggle flag
     }
 
+    function toggleShowQuestionOutput() {
+        const elements = document.querySelectorAll('pre.showed-output-block');
+        elements.forEach(element => {
+            element.style.display = areOutputBlocksVisible ? 'none' : 'block';
+        });
+        areOutputBlocksVisible = !areOutputBlocksVisible; // Toggle flag
+    }
 
     document.addEventListener('keydown', (event) => {
         if (event.code === "KeyH") {
             toggleShowQuestionButtons();
+            toggleShowQuestionOutput();
         }
     });
 
-    findQuestionsInGoogleForms();
+  //findQuestionsInGoogleForms();
+   setTimeout(() => {
+findQuestionsInGoogleForms();
+}, 2000);
+
 
 })();

@@ -1,0 +1,24 @@
+{
+    "name": "G-Form passer",
+    "description": "Додає кнопки копіювання в Google Forms ",
+    "version": "0.0.1",
+    "manifest_version": 3,
+    "icons": {
+      },
+      "permissions": [
+        "storage"
+      ],
+      "action": {
+        "default_popup": "./pages/popup.html"
+      },
+      "content_scripts": [
+        {
+          "css": ["./styles/content.css"],
+          "js": ["./scripts/content.js"],
+          "matches": ["*://docs.google.com/forms/*"],
+          "run_at": "document_idle"
+        }
+      ]
+
+
+}

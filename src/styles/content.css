@@ -1,0 +1,51 @@
+:root {
+    --btn-bg-color: #1a73e8;
+    --btn-hover-bg-color: #072f64;
+    --btn-active-bg-color: #71b3ff;
+    --btn-color: #ffffff;
+    --output-bg-color: #d4edda;
+    --output-bd-color: #c3e6cb;
+}
+
+.show-question-btn {
+    user-select: none;
+    transition: background-color 0.3s ease-in-out;
+    padding: 10px 15px;
+    background-color: var(--btn-bg-color);
+    color: var(--btn-color);
+    display: inline-block;
+    text-decoration: none;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--btn-bg-color);
+}
+
+.show-question-btn:hover {
+    background-color: var(--btn-hover-bg-color);
+}
+
+.show-question-btn:active {
+    border: 3px solid var(--btn-bg-color);
+    background-color: var(--btn-active-bg-color);
+}
+
+.output-block {
+    background: var(--output-bg-color);
+    border-radius: 5px;
+    border-style: 1px solid var(--output-bd-color);
+    padding: 10px;
+    display: none;
+}
+
+
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 100vw;   
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    cursor: not-allowed;
+    display: none;
+    z-index: '3000';
+}
