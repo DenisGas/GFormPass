@@ -8,6 +8,7 @@
 }
 
 .show-question-btn {
+    margin: 0 20px;
     user-select: none;
     transition: background-color 0.3s ease-in-out;
     padding: 10px 15px;
@@ -42,7 +43,7 @@
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 100vw;   
+    width: 100vw;
     height: 100vh;
     background-color: rgba(0, 0, 0, 0.5);
     cursor: not-allowed;

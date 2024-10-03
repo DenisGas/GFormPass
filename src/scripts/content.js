@@ -2,25 +2,25 @@ let areButtonsVisible = true; // Flag to track button visibility
 let areOutputBlocksVisible = true; // Flag to track output block visibility
 
 function createOverlay() {
-    const overlay = document.createElement('div');
-    overlay.id = 'loading-overlay';
-    document.body.appendChild(overlay);
-  }
-  
-  
-  function showOverlay() {
-    document.querySelectorAll(".ncFHed").forEach(e => {
-        e.style.zIndex = 0;
-    });
-    document.getElementById('loading-overlay').style.display = 'block';
-  }
-  
-  function hideOverlay() {
-    document.querySelectorAll(".ncFHed").forEach(e => {
-        e.style.zIndex = "";
-    });
-    document.getElementById('loading-overlay').style.display = 'none';
-  }
+  const overlay = document.createElement('div');
+  overlay.id = 'loading-overlay';
+  document.body.appendChild(overlay);
+}
+
+
+function showOverlay() {
+  document.querySelectorAll(".ncFHed").forEach(e => {
+    e.style.zIndex = 0;
+  });
+  document.getElementById('loading-overlay').style.display = 'block';
+}
+
+function hideOverlay() {
+  document.querySelectorAll(".ncFHed").forEach(e => {
+    e.style.zIndex = "";
+  });
+  document.getElementById('loading-overlay').style.display = 'none';
+}
 
 
 function getElementPath(element) {
@@ -55,7 +55,9 @@ async function clickAndExtractOptions(container) {
       resolve([]);
       return;
     }
-    selector.click(); // Click to open the dropdown
+
+    selector.click();
+
 
     const observer = new MutationObserver(() => {
       const optionsContainer = container.querySelector('div[role="listbox"]');
@@ -99,6 +101,46 @@ async function clickAndExtractOptions(container) {
       resolve([]); // Resolve with empty array if timeout occurs
     }, 3000); // Increased timeout
   });
+}
+async function selectCorrectAnswerForSelect(answerPath, containerPath) {
+  const container = document.querySelector(containerPath);
+  const selector = container.querySelector("div.MocG8c.HZ3kWc");
+
+  if (!selector) {
+    console.log("Selector not found.");
+    return;
+  }
+
+  const answer = document.querySelector(answerPath);
+  if (!answer) {
+    selector.click();
+  }
+
+  const observer = new MutationObserver(() => {
+    const optionsContainer = container.querySelector('div[role="listbox"]');
+    if (!optionsContainer) {
+      console.log("Options container not found.");
+      observer.disconnect();
+      return;
+    }
+
+    const answer = document.querySelector(answerPath);
+    if (!answer) {
+      console.log("Correct answer not found.");
+      observer.disconnect();
+      return;
+    }
+
+    answer.click(); // Клікаємо на правильну відповідь
+    observer.disconnect();
+  });
+
+  observer.observe(container, { childList: true, subtree: true });
+
+  // Якщо після 3 секунд опції не з'являються, вимикаємо спостерігач
+  setTimeout(() => {
+    observer.disconnect();
+  }, 3000);
 }
 
 function findAllQuestions() {
@@ -158,16 +200,10 @@ function findAllQuestions() {
       title: questionTitle,
       id: `Q-${index + 1}`,
       type: questionType,
-      options:
-        textField && !questionType === "radio_with_input"
-          ? []
-          : answerOptions.map((option, optionIndex) => ({
-              text: option.textContent.trim(),
-              id: `O-${optionIndex}`,
-              path: getElementPath(option),
-            })),
+      options: [],
       path: getElementPath(container),
     };
+
     questions.push(question);
   });
 
@@ -178,22 +214,44 @@ function findAllQuestions() {
 async function processQuestion(question, container) {
   if (question.type === "select") {
     const options = await clickAndExtractOptions(container);
-
     const halfLength = Math.ceil(options.length / 2);
     const filteredOptions = options.slice(halfLength);
+    // console.log('Answer options:', filteredOptions); // Додайте цю лінію
+    addOptionsToQuestion(question, filteredOptions);
 
-    question.options = filteredOptions.map((option, index) => ({
-      text: option.text,
-      id: `O-${index}`,
-      path: option.path,
+  } else {
+    const answerOptions = container.querySelectorAll(".OA0qNb, .aDTYNe.snByac");
+    const options = Array.from(answerOptions).map((option) => ({
+      text: option.textContent.trim(),
+      path: getElementPath(option),
     }));
+
+    // console.log('Answer options for non-select:', options); // Додайте цю лінію
+    addOptionsToQuestion(question, options);
   }
+
   createButtonForQuestion(question, container);
   createOutputBlockForQuestion(question, container);
 }
 
+function addOptionsToQuestion(question, options) {
+  question.options = options.map((option, optionIndex) => {
+    if (option && option) {
+      return {
+        text: option.text,
+        id: `O-${optionIndex}`,
+        path: option.path,
+      };
+    } else {
+      // console.warn('Undefined option or no textContent found', option);
+      return null;
+    }
+  }).filter(option => option !== null);
+}
+
+
 async function findQuestionsInGoogleForms() {
-    showOverlay();
+  showOverlay();
 
   const { questions } = findAllQuestions();
   const questionContainers = Array.from(
@@ -210,6 +268,44 @@ async function findQuestionsInGoogleForms() {
   }
   hideOverlay();
 }
+async function getCorrectAnswers(question) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([question.options[1]]);
+    }, 200);
+  });
+}
+
+
+async function markCorrectAnswers(question, correctAnswers) {
+  for (const answer of correctAnswers) {
+    const option = question.options.find(opt => opt.id === answer.id);
+
+    if (option) {
+      if (question.type === "select") {
+        await selectCorrectAnswerForSelect(option.path, question.path);
+        return
+      }
+
+      const element = document.querySelector(option.path);
+
+      if (element) {
+        if (question.type === "radio" || question.type === "checkbox" || question.type === "radio_with_input") {
+          element.click();
+          console.log(`Marked ${question.title} with option ${option.text}`);
+        }
+      } else {
+        console.warn(`Element for ${option.text} not found.`);
+      }
+    } else {
+      console.warn(`Option with id ${answerId} not found in question ${question.title}.`);
+    }
+  }
+}
+
+
+
+
 
 function createButtonForQuestion(question, container) {
   if (!container || container.querySelector("a.show-question-btn")) return;
@@ -224,8 +320,8 @@ function createButtonForQuestion(question, container) {
     const optionsText =
       question.options.length > 0
         ? `Варіанти відповіді:\n${question.options
-            .map((opt) => `- ${opt.text}`)
-            .join("\n")}`
+          .map((opt) => `- ${opt.text}`)
+          .join("\n")}`
         : "";
     const fullText = questionText + optionsText;
 
@@ -240,7 +336,38 @@ function createButtonForQuestion(question, container) {
   });
 
   container.appendChild(button);
+
+
+  const correctAnswerButton = document.createElement("a");
+  correctAnswerButton.textContent = "Отримати правильні відповіді";
+  correctAnswerButton.classList.add("show-question-btn");
+  correctAnswerButton.classList.add("show-correct-answer-btn");
+  correctAnswerButton.style.display = areButtonsVisible ? "inline-block" : "none";
+
+  correctAnswerButton.addEventListener("click", async () => {
+    try {
+      const correctAnswers = await getCorrectAnswers(question);
+
+      let fullText;
+      if (correctAnswers && correctAnswers.length > 0) {
+        fullText = "Отримані правильні відповіді:\n" + correctAnswers.map(element => element.text).join(", ");
+      } else {
+        fullText = "Варіантів відповідей не знайдено.";
+      }
+
+      console.log(fullText);
+      displayCopiedText(fullText, container);
+
+      await markCorrectAnswers(question, correctAnswers);
+    } catch (error) {
+      console.error("Помилка при отриманні відповідей:", error);
+      displayCopiedText("Помилка при отриманні відповідей.", container);
+    }
+  });
+
+  container.appendChild(correctAnswerButton);
 }
+
 
 function createOutputBlockForQuestion(question, container) {
   const outputBlock = document.createElement("pre");
@@ -253,7 +380,7 @@ function displayCopiedText(text, container) {
   const outputBlock = container.querySelector(".output-block");
   if (outputBlock) {
     outputBlock.textContent = text;
-    outputBlock.style.display = "block"; 
+    outputBlock.style.display = "block";
     outputBlock.classList.add("showed-output-block");
   }
 }
@@ -263,7 +390,7 @@ function toggleShowQuestionButtons() {
   buttons.forEach((button) => {
     button.style.display = areButtonsVisible ? "none" : "inline-block";
   });
-  areButtonsVisible = !areButtonsVisible; // Toggle flag
+  areButtonsVisible = !areButtonsVisible;
 }
 
 function toggleShowQuestionOutput() {
@@ -271,16 +398,18 @@ function toggleShowQuestionOutput() {
   elements.forEach((element) => {
     element.style.display = areOutputBlocksVisible ? "none" : "block";
   });
-  areOutputBlocksVisible = !areOutputBlocksVisible; // Toggle flag
+  areOutputBlocksVisible = !areOutputBlocksVisible;
 }
 
 document.addEventListener("keydown", (event) => {
-    if (event.ctrlKey && event.code === "KeyH") {
-      toggleShowQuestionButtons();
-      toggleShowQuestionOutput();
-    }
-  });
-  
+  if (event.ctrlKey && event.code === "KeyH") {
+    event.preventDefault();
+    toggleShowQuestionButtons();
+    toggleShowQuestionOutput();
+  }
+});
+
+
 // Ініціалізація оверлея
 createOverlay();
 
